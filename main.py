@@ -21,7 +21,7 @@ def MatchField(text):
     elif text == "学号":
         return "6401230103"
     else:
-        return "啥玩意"
+        return "啥玩意?"
 
 
 if __name__ == "__main__":
