@@ -1,9 +1,8 @@
 # coding=utf-8
 import time
-from cv2 import imread, QRCodeDetector
-from pyzbar import pyzbar
-from selenium.webdriver import Chrome
+import selenium
 from selenium.webdriver.common.by import By
+from cv2 import imread, QRCodeDetector
 
 
 def ScanQRCode(path):
@@ -13,12 +12,12 @@ def ScanQRCode(path):
     return info
 
 
-def MatchField(text):
-    if text == "姓名":
+def MatchField(m):
+    if m == "姓名":
         return "冯洋一"
-    elif text == "班级":
+    elif m == "班级":
         return "智医2301"
-    elif text == "学号":
+    elif m == "学号":
         return "6401230103"
     else:
         return "啥玩意?"
@@ -26,19 +25,19 @@ def MatchField(text):
 
 if __name__ == "__main__":
     cnt = 0
-    url = ScanQRCode(r"img.png")
-    # url = "https://www.wjx.top/vm/ODYMYw5.aspx#"
-    browser = Chrome()
+    # url = ScanQRCode(r"10171030.png")
+    url = "https://www.wjx.cn/vm/evfoZuA.aspx# "
+    browser = selenium.webdriver.Chrome()
     browser.get(url)
     # WebDriverWait(browser, 5).until(lambda d: "" in d.page_source)
     while True:
-        FormCount = len(browser.find_elements(By.XPATH, '//*[@class="field ui-field-contain"]'))
-        for i in range(1, FormCount + 1):
-            text = browser.find_elements(By.XPATH, '//*[@class="topichtml"]')[i - 1].text
-            ans = MatchField(text)
-            browser.find_element(By.XPATH, f'//*[@id=\'q{i}\']').send_keys(ans)
+        ques = browser.find_elements(By.CSS_SELECTOR, '[class="field ui-field-contain"]')
+        for que in ques:
+            que_type = que.find_element(By.XPATH, '[div2]').get_attribute('class')
+            print(que_type)
         try:
-            browser.find_element(By.XPATH, '//*[@class="submitbtn mainBgColor"]').click()  # 点击提交
+            # browser.find_element(By.XPATH, '[class="field.ui-field-contain"]').click()  # 点击提交
+            pass
         except:
             cnt += 1
             print(f"【失败】问卷尚未开始填写！（已尝试{cnt}次）")
