@@ -55,4 +55,4 @@ if __name__ == "__main__":
         browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()  # 点击提交
         break
     print("【INFO】计划任务已执行，60秒后关闭网页...")
-    time.sleep(60)
+    time.sleep(600)
