@@ -12,46 +12,47 @@ def ScanQRCode(path):
     return info
 
 
-def MatchField(m):
-    if m == "姓名":
-        return "冯洋一"
-    elif m == "班级":
+def MatchAnswer(text):
+    if "班级" in text:
         return "智医2301"
-    elif m == "学号":
+    elif "姓名" in text:
+        return "冯洋一"
+    elif "学号" in text:
         return "6401230103"
     else:
-        return "啥玩意?"
+        return "非常好活动，爱来自曲折的江"
+
+
+def FillForm(que):
+    num = que.get_attribute('topic')
+    text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
+    type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
+    if type == "ui-input-text":
+        ans = MatchAnswer(text)
+        que.find_element(By.TAG_NAME, 'input').send_keys(ans)
+        # print(a)
+    else:
+        print("【WARNING】遇到未知的表单类型，已跳过填写。")
 
 
 if __name__ == "__main__":
-    cnt = 0
-    # url = ScanQRCode(r"10171030.png")
-    url = "https://www.wjx.cn/vm/evfoZuA.aspx# "
+    cnt = 1
+    delay = 0.5
+    url = ScanQRCode(r"10171030.png")
+    # url = "https://www.wjx.cn/vm/evfoZuA.aspx# "
     browser = selenium.webdriver.Chrome()
     browser.get(url)
-    # WebDriverWait(browser, 5).until(lambda d: "" in d.page_source)
     while True:
         ques = browser.find_elements(By.CSS_SELECTOR, '[class="field ui-field-contain"]')
-        for que in ques:
-            que_type = que.find_element(By.XPATH, '[div2]').get_attribute('class')
-            print(que_type)
-        try:
-            # browser.find_element(By.XPATH, '[class="field.ui-field-contain"]').click()  # 点击提交
-            pass
-        except:
+        if len(ques) == 0:
+            print(f"【WARNING】无可填项，问卷可能未开放。 #{cnt}")
             cnt += 1
-            print(f"【失败】问卷尚未开始填写！（已尝试{cnt}次）")
-            time.sleep(1)
-            browser.refresh();
-        else:
-            print("【成功】问卷已提交。")
-            break
-
-    # headers = {  # 设定的浏览器请求头 "referer": "www.wjx.top", "cookie":
-    # "acw_tc=76b20ffa16972569871175854e4f9c4e7ec6ce6ef98c44f8e9f1b119ec431e;
-    # .ASPXANONYMOUS=7yIMCuc02gEkAAAAZTU0MjJiYzktYjgxYS00NzFlLWI4ZTEtODViNjE0MDVlZGU03s0TiCkPDHKtkg672YicYgUBRcU1;
-    # Hm_lvt_21be24c80829bd7a683b2c536fcf520b=1697256989; jac238862082=31160712;
-    # SERVERID=56bac570323aa451802d43d98d942ec7|1697257782|1697256987;
-    # Hm_lpvt_21be24c80829bd7a683b2c536fcf520b=1697257784", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-    # AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.60" } res = requests.get(
-    # url=url, headers=headers).text print(res)
+            time.sleep(delay)
+            browser.refresh()
+            continue
+        for que in ques:
+            FillForm(que)
+        browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()  # 点击提交
+        break
+    print("【INFO】计划任务已执行，60秒后关闭网页...")
+    time.sleep(60)
