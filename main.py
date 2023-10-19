@@ -35,7 +35,7 @@ def MatchAnswer(text):
 
 
 def FillForm(que):
-    # num = que.get_attribute('topic')
+    #  num = que.get_attribute('topic')
     text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
     type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
     ans = MatchAnswer(text)
