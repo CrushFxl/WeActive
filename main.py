@@ -51,7 +51,7 @@ def FillForm(que):
 if __name__ == "__main__":
     url = ScanQRCode(r"img.png")
     delay = ReadSetting()
-    # url = "https://www.wjx.cn/vm/evfoZuA.aspx#"
+    #  url = "https://www.wjx.cn/vm/evfoZuA.aspx#"
     browser = selenium.webdriver.Chrome()
     browser.get(url)
     while True:
