@@ -1,9 +1,18 @@
 # coding=utf-8
+
 import time
 import selenium
 from selenium.webdriver.common.by import By
 from cv2 import imread, QRCodeDetector
 from configparser import ConfigParser
+
+cnt = 1
+
+
+def ReadSetting():
+    conf = ConfigParser()
+    conf.read('config.ini', encoding='utf-8')
+    return float(conf['setting']['delay'])
 
 
 def ScanQRCode(path):
@@ -13,7 +22,7 @@ def ScanQRCode(path):
     return info
 
 
-def GetAnswer(text):
+def MatchAnswer(text):
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     for key, value in conf['answer'].items():
@@ -24,12 +33,13 @@ def GetAnswer(text):
     else:
         return False
 
+
 def FillForm(que):
     # num = que.get_attribute('topic')
     text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
     type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
-    if type == "ui-input-text":
-        ans = GetAnswer(text)
+    ans = MatchAnswer(text)
+    if type == "ui-input-text" or type == "ui-input-text selfMess":
         if ans:
             que.find_element(By.TAG_NAME, 'input').send_keys(ans)
         else:
@@ -39,10 +49,9 @@ def FillForm(que):
 
 
 if __name__ == "__main__":
-    cnt = 1
-    delay = 0.5
-    # url = ScanQRCode(r"10171030.png")
-    url = "https://www.wjx.cn/vm/evfoZuA.aspx# "
+    # url = ScanQRCode(r"img.png")
+    delay = ReadSetting()
+    url = "https://www.wjx.cn/vm/evfoZuA.aspx#"
     browser = selenium.webdriver.Chrome()
     browser.get(url)
     while True:
@@ -55,7 +64,7 @@ if __name__ == "__main__":
             continue
         for que in ques:
             FillForm(que)
-        browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()  # 点击提交
+        browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()
         break
     print("【INFO】计划任务已执行，60秒后将关闭网页...")
     time.sleep(60)
