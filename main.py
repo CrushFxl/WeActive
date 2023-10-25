@@ -67,4 +67,6 @@ if __name__ == "__main__":
         browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()
         break
     print("【INFO】计划任务已执行，60秒后将关闭网页...")
+    print("Github开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
+    print("作者：杭医CrushFxl 程序仅供学习交流使用，切勿作其他用途。")
     time.sleep(60)
