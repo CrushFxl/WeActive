@@ -1,19 +1,22 @@
 # coding=utf-8
 
 import time
-import os
+import os, shutil
 import re
 import selenium
 from threading import Thread
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.remote.remote_connection import LOGGER
 from cv2 import imread, QRCodeDetector
 from configparser import ConfigParser
+import logging
 
 
 class WebTask:
     def __init__(self, img):
         self.browser = selenium.webdriver.Chrome()
+        self.img_name = img
         self.url = ScanQRCode(img)
         self.name = None
         self.time = None
@@ -21,7 +24,11 @@ class WebTask:
         self.GetBasicInfo()
 
     def GetBasicInfo(self):
-        self.browser.get(self.url)
+        try:
+            self.browser.get(self.url)
+        except:
+            self.state = -2
+            return
         page = self.browser.page_source
         self.name = re.search(r"<title>(.*?)</title>", page).groups()[0]
         matchOld = re.search(r"不能再接受新的答卷", page)
@@ -37,14 +44,16 @@ class WebTask:
             self.state = 1
 
     def Execute(self):
-        if self.state == -1:
-            print(f"\033[;33;40m【警告】 [{self.name}] 已过期，无法填写！\033[0m")
+        if self.state == -2:
+            print(f"\033[;33;40m【错误】文件 [{self.img_name}] 二维码无法识别，已跳过。 \033[0m")
+            return
+        elif self.state == -1:
+            print(f"\033[;33;40m【错误】 [{self.name}] 已过期，无法填写！\033[0m")
             return
         elif self.state == 1:
             print(f"\033[;33;40m【警告】 [{self.name}] 已开放填写，提交可能不及时！\033[0m")
-            self.state = 0
         else:
-            print(f"[{self.name}] 已加入计划。")
+            print(f"[{self.name}] 已加入计划。/ 计划刻：{self.time}")
             if self.time > 30:
                 time.sleep(self.time - 30)
         print(f"[{self.name}] 开始执行。")
@@ -58,10 +67,12 @@ class WebTask:
                 if FillForm(que):
                     self.state = 2
             self.browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()
-            if self.state:
+            if self.state == 2:
                 time.sleep(60)
             break
         print(f"[{self.name}] 已完成。")
+        os.makedirs('./old/', exist_ok=True)
+        shutil.move(f'./task/{self.img_name}', f'./old/{self.img_name}')
 
 
 def ScanQRCode(file_name):
@@ -111,6 +122,7 @@ if __name__ == "__main__":
     delay = ReadSetting()
     chrome_options = Options()
     chrome_options.page_load_strategy = 'eager'
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])   # 禁用日志输出
     imgs = os.listdir(os.getcwd() + "/task/")
     threads = []
     for img in imgs:
