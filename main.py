@@ -10,8 +10,6 @@ from selenium.webdriver.chrome.options import Options
 from cv2 import imread, QRCodeDetector
 from configparser import ConfigParser
 
-cnt = 1
-
 
 class WebTask:
     def __init__(self, img):
@@ -39,16 +37,17 @@ class WebTask:
             self.state = 1
 
     def Execute(self):
-        if t[i].state == -1:
-            print(f"【警告】任务【{self.name}】已过期，无法填写！")
+        if self.state == -1:
+            print(f"\033[;33;40m【警告】 [{self.name}] 已过期，无法填写！\033[0m")
             return
-        elif t[i].state == 1:
-            print(f"【警告】任务【{self.name}】已开放填写，提交可能不及时！")
+        elif self.state == 1:
+            print(f"\033[;33;40m【警告】 [{self.name}] 已开放填写，提交可能不及时！\033[0m")
+            self.state = 0
         else:
-            print(f"【提示】任务【{self.name}】已加入计划。)")
-            if self.time > 60:
-                time.sleep(self.time - 60)
-        print(f"【提示】任务【{self.name}】开始执行。")
+            print(f"[{self.name}] 已加入计划。")
+            if self.time > 30:
+                time.sleep(self.time - 30)
+        print(f"[{self.name}] 开始执行。")
         while True:
             ques = self.browser.find_elements(By.CSS_SELECTOR, '[class="field ui-field-contain"]')
             if len(ques) == 0:
@@ -56,10 +55,13 @@ class WebTask:
                 self.browser.refresh()
                 continue
             for que in ques:
-                FillForm(que)
+                if FillForm(que):
+                    self.state = 2
             self.browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()
+            if self.state:
+                time.sleep(60)
             break
-        print(f"【提示】任务【{self.name}】已完成执行。\n")
+        print(f"[{self.name}] 已完成。")
 
 
 def ScanQRCode(file_name):
@@ -89,6 +91,7 @@ def MatchAnswer(text):
 
 def FillForm(que):
     #  num = que.get_attribute('topic')
+    flag = 0
     text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
     type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
     ans = MatchAnswer(text)
@@ -96,9 +99,12 @@ def FillForm(que):
         if ans:
             que.find_element(By.TAG_NAME, 'input').send_keys(ans)
         else:
-            print("【警告】无有效匹配项且无缺省匹配，已跳过填写。")
+            print("\033[;33;40m【警告】不存在有效匹配项且无缺省匹配，等待手动提交（60s）\033[0m")
+            flag = 1
     else:
-        print("【警告】遇到未知的表单类型，已跳过填写。")
+        print("\033[;33;40m【警告】遇到未知的表单类型，等待手动提交（60s）\033[0m")
+        flag = 1
+    return flag
 
 
 if __name__ == "__main__":
@@ -106,11 +112,13 @@ if __name__ == "__main__":
     chrome_options = Options()
     chrome_options.page_load_strategy = 'eager'
     imgs = os.listdir(os.getcwd() + "/task/")
-    i = 0
-    t = []  # WebTask对象列表
+    threads = []
     for img in imgs:
-        t.append(WebTask(img))
-        Thread(target=t[i].Execute())
-        i += 1
-    print("Github开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
+        t = WebTask(img)
+        thd = Thread(target=t.Execute)
+        threads.append(thd)
+        thd.start()
+    for thd in threads:
+        thd.join()
+    print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
     print("作者：杭医CrushFxl 程序仅供学习交流使用，切勿作其他用途。")
