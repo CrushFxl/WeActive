@@ -14,15 +14,14 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
 threads = []  # 线程池
-webTask = []  # WebTask对象列表
-delay = 1  # 网页刷新间隔(s)
+tasks = {}  # 任务队列 {文件名:WebTask对象}
 
 
 class WebTask:
     def __init__(self, img):
         self.browser = selenium.webdriver.Chrome(options=chrome_options)
         self.img_name = img
-        self.url = scanQRCode(img)
+        self.url = ScanQRCode(img)
         self.name = None
         self.time = None
         self.state = self.GetName()
@@ -42,12 +41,12 @@ class WebTask:
         return 0
 
     def GetTime(self):
-        scheTime = re.search(r"还有(\d+)天(\d+)时(\d+)分(\d+)秒", self.browser.page_source)
-        if scheTime:
+        try:
+            scheTime = re.search(r"还有(\d+)天(\d+)时(\d+)分(\d+)秒", self.browser.page_source)
             d, h, m, s = scheTime.groups()
             self.time = int(d) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
-        else:
-            self.time = 0
+        except:
+            self.time = -1
 
     def Run(self):
         if self.state == 0:
@@ -57,7 +56,7 @@ class WebTask:
             print(f"[{self.name}] 开始执行。")
             self.FillForm()
             print(f"\033[0;32;40m[{self.name}] 已完成。\033[0m")
-        self.EjectTask()
+        self.EjectTask()  # 销毁该计划任务
 
     def FillForm(self):
         while True:
@@ -73,15 +72,15 @@ class WebTask:
             for que in ques:
                 text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
                 type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
-                ans = matchAnswer(text)
+                ans = MatchAnswer(text)
                 if type == "ui-input-text" or type == "ui-input-text selfMess":
                     if ans:
                         que.find_element(By.TAG_NAME, 'input').send_keys(ans)
                     else:
-                        print(f"\033[;33;40m【警告】[{self.name}] 无有效匹配项，任务切为手动模式...(60s)\033[0m")
+                        print(f"\033[;33;40m【警告】[{self.name}] 无有效匹配，等待手动填写...(60s)\033[0m")
                         self.state = 1
                 else:
-                    print(f"\033[;33;40m【警告】[{self.name}] 遇到未知的表单项，任务切为手动模式...(60s)\033[0m")
+                    print(f"\033[;33;40m【警告】[{self.name}] 遇到未知表单，等待手动填写...(60s)\033[0m")
                     self.state = 1
             if self.state == 1:
                 time.sleep(60)
@@ -92,24 +91,24 @@ class WebTask:
     def EjectTask(self):
         os.makedirs('./old/', exist_ok=True)
         shutil.move(f'./task/{self.img_name}', f'./old/{self.img_name}')
+        tasks.pop(self.img_name)    # 从任务队列中弹出
         self.browser.quit()
-        webTask.remove(self)
 
 
-def scanQRCode(file_name):
+def ScanQRCode(file_name):
     img = imread("./task/" + file_name)
     det = QRCodeDetector()
     url, pts, st_code = det.detectAndDecode(img)
     return url
 
 
-def readSetting():
+def ReadSetting():
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     return float(conf['setting']['delay'])
 
 
-def matchAnswer(text):
+def MatchAnswer(text):
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     for key, value in conf['answer'].items():
@@ -121,53 +120,43 @@ def matchAnswer(text):
         return False
 
 
-def listenTask():
+def ListenTask():
     while True:
         imgs = os.listdir(os.getcwd() + "/task/")
         for img in imgs:
             isNew = 1
-            for task in webTask:
-                if img == task.img_name:
+            for task in tasks.keys():
+                if img == task:
                     isNew = 0
             if isNew:
-                t = WebTask(img)
-                webTask.append(t)
-                thd = Thread(target=t.Run)
-                threads.append(thd)
-                thd.start()
+                tasks[img] = WebTask(img)   # 创建任务实例并添加到计划任务队列
+                thrd = Thread(target=tasks[img].Run)    # 创建线程
+                threads.append(thrd)    # 加入到线程池
+                thrd.start()
         time.sleep(1)
 
 
-def listenCommand():
+def ListenCommand():
     while True:
         msg = input()
-        if msg == "list" or msg == "l":
-            for t in webTask:
+        if msg == "list":
+            for t in tasks.values():    # 遍历当前任务对象
                 t.GetTime()
-                print(f" - {t.name} | 计划刻剩余：{t.time}")
+                print(f" - {t.name} | 计划刻：{t.time}")
             print()
         else:
-            print("未知命令")
-
-
-def initBrowser():
-    chrome_options.page_load_strategy = 'eager'
-    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--remote-debugging-port=9222')
-    # chrome_options.add_argument('--headless')       # 无界面运行
+            print("[未知命令]")
 
 
 if __name__ == "__main__":
-    colorama.init(autoreset=True)  # 调整print颜色样式编码
-    readSetting()
+    delay = ReadSetting()
+    colorama.init(autoreset=True)  # 自动调整print颜色样式编码
     chrome_options = selenium.webdriver.ChromeOptions()
-    initBrowser()
-    Thread(target=listenTask).start()  # 监听添加任务
-    Thread(target=listenCommand).start()  # 监听响应命令
+    chrome_options.page_load_strategy = 'eager'
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    Thread(target=ListenTask).start()  # 监听添加任务
+    Thread(target=ListenCommand).start()  # 监听响应命令
     print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
-    print("作者：杭医CrushFxl  觉得好用吗？在项目页面上帮助作者点个Star吧！\n")
+    print("作者：杭医CrushFxl  觉得好用吗？在项目页面上帮助作者点个Star吧！")
     for thd in threads:  # 等待线程任务结束
         thd.join()
