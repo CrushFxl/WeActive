@@ -165,4 +165,4 @@ if __name__ == "__main__":
     for thd in threads:  # 等待线程任务结束
         thd.join()
     print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
-    print("作者：杭医CrushFxl  觉得程序好用？在项目页面上帮助作者点个Star吧！\n程序已结束.")
+    print("作者：杭医CrushFxl  觉得好用吗？在项目页面上帮助作者点个Star吧！\n程序已结束.")
