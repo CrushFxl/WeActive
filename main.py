@@ -6,8 +6,8 @@ import shutil
 import time
 from configparser import ConfigParser
 from threading import Thread
-import colorama
 
+import colorama
 import selenium
 from cv2 import imread, QRCodeDetector
 from selenium.webdriver.chrome.options import Options
@@ -21,7 +21,7 @@ class WebTask:
     def __init__(self, img):
         self.browser = selenium.webdriver.Chrome(options=chrome_options)
         self.img_name = img
-        self.url = ScanQRCode(img)
+        self.url = scanQRCode(img)
         self.name = None
         self.time = None
         self.state = self.GetName()
@@ -72,7 +72,7 @@ class WebTask:
             for que in ques:
                 text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
                 type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
-                ans = MatchAnswer(text)
+                ans = matchAnswer(text)
                 if type == "ui-input-text" or type == "ui-input-text selfMess":
                     if ans:
                         que.find_element(By.TAG_NAME, 'input').send_keys(ans)
@@ -91,24 +91,24 @@ class WebTask:
     def EjectTask(self):
         os.makedirs('./old/', exist_ok=True)
         shutil.move(f'./task/{self.img_name}', f'./old/{self.img_name}')
-        tasks.pop(self.img_name)    # 从任务队列中弹出
+        tasks.pop(self.img_name)  # 从任务队列中弹出
         self.browser.quit()
 
 
-def ScanQRCode(file_name):
+def scanQRCode(file_name):
     img = imread("./task/" + file_name)
     det = QRCodeDetector()
     url, pts, st_code = det.detectAndDecode(img)
     return url
 
 
-def ReadSetting():
+def readSetting():
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     return float(conf['setting']['delay'])
 
 
-def MatchAnswer(text):
+def matchAnswer(text):
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     for key, value in conf['answer'].items():
@@ -120,7 +120,7 @@ def MatchAnswer(text):
         return False
 
 
-def ListenTask():
+def listenTask():
     while True:
         imgs = os.listdir(os.getcwd() + "/task/")
         for img in imgs:
@@ -129,18 +129,18 @@ def ListenTask():
                 if img == task:
                     isNew = 0
             if isNew:
-                tasks[img] = WebTask(img)   # 创建任务实例并添加到计划任务队列
-                thrd = Thread(target=tasks[img].Run)    # 创建线程
-                threads.append(thrd)    # 加入到线程池
+                tasks[img] = WebTask(img)  # 创建任务实例并添加到计划任务队列
+                thrd = Thread(target=tasks[img].Run)  # 创建线程
+                threads.append(thrd)  # 加入到线程池
                 thrd.start()
         time.sleep(1)
 
 
-def ListenCommand():
+def listenCommand():
     while True:
         msg = input()
         if msg == "list":
-            for t in tasks.values():    # 遍历当前任务对象
+            for t in tasks.values():  # 遍历当前任务对象
                 t.GetTime()
                 print(f" - {t.name} | 计划刻：{t.time}")
             print()
@@ -149,14 +149,14 @@ def ListenCommand():
 
 
 if __name__ == "__main__":
-    delay = ReadSetting()
+    delay = readSetting()
     colorama.init(autoreset=True)  # 自动调整print颜色样式编码
     chrome_options = selenium.webdriver.ChromeOptions()
     chrome_options.page_load_strategy = 'eager'
     chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    Thread(target=ListenTask).start()  # 监听添加任务
-    Thread(target=ListenCommand).start()  # 监听响应命令
+    Thread(target=listenTask).start()  # 监听添加任务
+    Thread(target=listenCommand).start()  # 监听响应命令
     print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
-    print("作者：杭医CrushFxl 觉得好用吗？在项目页面上帮助作者点个Star吧！")
+    print("作者：杭医CrushFxl 觉得好用吗？在项目页面上帮助作者点个Star吧！\n")
     for thd in threads:  # 等待线程任务结束
         thd.join()
