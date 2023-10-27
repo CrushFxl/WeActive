@@ -14,15 +14,15 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
 threads = []  # 线程池
-tasks = []  # 任务队列
 webTask = []  # WebTask对象列表
+delay = 1  # 网页刷新间隔(s)
 
 
 class WebTask:
     def __init__(self, img):
         self.browser = selenium.webdriver.Chrome(options=chrome_options)
         self.img_name = img
-        self.url = ScanQRCode(img)
+        self.url = scanQRCode(img)
         self.name = None
         self.time = None
         self.state = self.GetName()
@@ -51,14 +51,13 @@ class WebTask:
 
     def Run(self):
         if self.state == 0:
-            print(f"[{self.name}] 任务已加入计划。/ 计划刻：{self.time}")
-            tasks.append(self.img_name)
+            print(f"[{self.name}] 任务已加入计划。| 计划刻：{self.time}")
             if self.time > 30:
                 time.sleep(self.time - 30)
             print(f"[{self.name}] 开始执行。")
             self.FillForm()
             print(f"\033[0;32;40m[{self.name}] 已完成。\033[0m")
-            self.EjectTask()
+        self.EjectTask()
 
     def FillForm(self):
         while True:
@@ -74,7 +73,7 @@ class WebTask:
             for que in ques:
                 text = que.find_element(By.CSS_SELECTOR, '[class="topichtml"]').text
                 type = que.find_elements(By.XPATH, 'child::*')[1].get_attribute('class')
-                ans = MatchAnswer(text)
+                ans = matchAnswer(text)
                 if type == "ui-input-text" or type == "ui-input-text selfMess":
                     if ans:
                         que.find_element(By.TAG_NAME, 'input').send_keys(ans)
@@ -93,24 +92,24 @@ class WebTask:
     def EjectTask(self):
         os.makedirs('./old/', exist_ok=True)
         shutil.move(f'./task/{self.img_name}', f'./old/{self.img_name}')
-        tasks.remove(self.img_name)
         self.browser.quit()
+        webTask.remove(self)
 
 
-def ScanQRCode(file_name):
+def scanQRCode(file_name):
     img = imread("./task/" + file_name)
     det = QRCodeDetector()
     url, pts, st_code = det.detectAndDecode(img)
     return url
 
 
-def ReadSetting():
+def readSetting():
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     return float(conf['setting']['delay'])
 
 
-def MatchAnswer(text):
+def matchAnswer(text):
     conf = ConfigParser()
     conf.read('config.ini', encoding='utf-8')
     for key, value in conf['answer'].items():
@@ -122,13 +121,13 @@ def MatchAnswer(text):
         return False
 
 
-def ListenTask():
+def listenTask():
     while True:
         imgs = os.listdir(os.getcwd() + "/task/")
         for img in imgs:
             isNew = 1
-            for task in tasks:
-                if img == task:
+            for task in webTask:
+                if img == task.img_name:
                     isNew = 0
             if isNew:
                 t = WebTask(img)
@@ -139,30 +138,36 @@ def ListenTask():
         time.sleep(1)
 
 
-def ListenCommand():
+def listenCommand():
     while True:
-        t = input()
-        if t == "list":
-            print("【当前计划任务】")
-            for i in webTask:
-                if i.img_name in tasks:
-                    i.GetTime()
-                    print(f" - {i.name} / 计划刻剩余：{i.time}秒")
+        msg = input()
+        if msg == "list" or msg == "l":
+            for t in webTask:
+                t.GetTime()
+                print(f" - {t.name} | 计划刻剩余：{t.time}")
+            print()
         else:
             print("未知命令")
 
 
-if __name__ == "__main__":
-    delay = ReadSetting()
-    colorama.init(autoreset=True)  # 自动调整print颜色样式编码
-    chrome_options = selenium.webdriver.ChromeOptions()
+def initBrowser():
     chrome_options.page_load_strategy = 'eager'
     chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    chrome_options.add_argument('log-level=3')
-    Thread(target=ListenTask).start()  # 监听添加任务
-    Thread(target=ListenCommand).start()  # 监听响应命令
-    time.sleep(20)
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--remote-debugging-port=9222')
+    # chrome_options.add_argument('--headless')       # 无界面运行
+
+
+if __name__ == "__main__":
+    colorama.init(autoreset=True)  # 调整print颜色样式编码
+    readSetting()
+    chrome_options = selenium.webdriver.ChromeOptions()
+    initBrowser()
+    Thread(target=listenTask).start()  # 监听添加任务
+    Thread(target=listenCommand).start()  # 监听响应命令
+    print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
+    print("作者：杭医CrushFxl  觉得好用吗？在项目页面上帮助作者点个Star吧！\n")
     for thd in threads:  # 等待线程任务结束
         thd.join()
-    print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
-    print("作者：杭医CrushFxl  觉得好用吗？在项目页面上帮助作者点个Star吧！\n程序已结束.")
