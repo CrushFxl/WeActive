@@ -24,10 +24,9 @@ class WebTask:
         self.url = scanQRCode(img)
         self.name = None
         self.time = None
-        self.state = self.GetName()
-        self.GetTime()
+        self.state = self.CheckTask()   # 检查任务合法性
 
-    def GetName(self):
+    def CheckTask(self):
         try:
             self.browser.get(self.url)
         except:
@@ -40,6 +39,21 @@ class WebTask:
             return -1
         return 0
 
+    def Run(self):
+        if self.state == 0:
+            self.GetTime()
+            print(f"[{self.name}] 任务已加入计划。| 计划刻：{self.time}")
+            if self.time > 30:
+                time.sleep(self.time - 30)
+            print(f"[{self.name}] 开始执行。")
+            self.FillForm()
+            print(f"\033[0;32;40m[{self.name}] 已完成。\033[0m")
+
+        os.makedirs('./old/', exist_ok=True)
+        shutil.move(f'./task/{self.img_name}', f'./old/{self.img_name}')
+        tasks.pop(self.img_name)  # 从任务队列中弹出
+        self.browser.quit()
+
     def GetTime(self):
         try:
             scheTime = re.search(r"还有(\d+)天(\d+)时(\d+)分(\d+)秒", self.browser.page_source)
@@ -47,16 +61,6 @@ class WebTask:
             self.time = int(d) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
         except:
             self.time = -1
-
-    def Run(self):
-        if self.state == 0:
-            print(f"[{self.name}] 任务已加入计划。| 计划刻：{self.time}")
-            if self.time > 30:
-                time.sleep(self.time - 30)
-            print(f"[{self.name}] 开始执行。")
-            self.FillForm()
-            print(f"\033[0;32;40m[{self.name}] 已完成。\033[0m")
-        self.EjectTask()  # 销毁该计划任务
 
     def FillForm(self):
         while True:
@@ -88,12 +92,6 @@ class WebTask:
                 self.browser.find_element(By.CSS_SELECTOR, '[class="submitbtn mainBgColor"]').click()
             break
 
-    def EjectTask(self):
-        os.makedirs('./old/', exist_ok=True)
-        shutil.move(f'./task/{self.img_name}', f'./old/{self.img_name}')
-        tasks.pop(self.img_name)  # 从任务队列中弹出
-        self.browser.quit()
-
 
 def scanQRCode(file_name):
     img = imread("./task/" + file_name)
@@ -104,13 +102,13 @@ def scanQRCode(file_name):
 
 def readSetting():
     conf = ConfigParser()
-    conf.read('config.ini', encoding='utf-8')
+    conf.read('config.ini', encoding='utf-8-sig')
     return float(conf['setting']['delay'])
 
 
 def matchAnswer(text):
     conf = ConfigParser()
-    conf.read('config.ini', encoding='utf-8')
+    conf.read('config.ini', encoding='utf-8-sig')
     for key, value in conf['answer'].items():
         if key in text:
             return value
@@ -148,15 +146,22 @@ def listenCommand():
             print("[未知命令]")
 
 
-if __name__ == "__main__":
-    delay = readSetting()
-    colorama.init(autoreset=True)  # 自动调整print颜色样式编码
-    chrome_options = selenium.webdriver.ChromeOptions()
+def initBrowser():
     chrome_options.page_load_strategy = 'eager'
     chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+
+
+if __name__ == "__main__":
+    chrome_options = selenium.webdriver.ChromeOptions()
+    initBrowser()   # 初始化浏览器设置
+    delay = readSetting()   # 读取配置文件
+    colorama.init(autoreset=True)  # 调整print颜色编码
     Thread(target=listenTask).start()  # 监听添加任务
     Thread(target=listenCommand).start()  # 监听响应命令
-    print("\nGithub开源项目地址：https://github.com/CrushFxl/FormSubmitTool-based-on-wjx")
+    print("Github开源项目地址：https://github.com/CrushFxl/SubmitTool-based-on-wjx")
     print("作者：杭医CrushFxl 觉得好用吗？在项目页面上帮助作者点个Star吧！\n")
     for thd in threads:  # 等待线程任务结束
         thd.join()
